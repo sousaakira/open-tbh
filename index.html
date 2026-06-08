@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IDLL Game</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: var(--window-width, 400px);
+        height: var(--window-height, 140px);
+        overflow: hidden;
+        background: #0d1117;
+        user-select: none;
+      }
+
+      #game-container {
+        position: relative;
+        width: var(--window-width, 400px);
+        height: var(--window-height, 140px);
+        z-index: 1;
+      }
+
+      #game-container canvas {
+        display: block;
+      }
+
+      #drag-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: var(--window-width, 400px);
+        height: var(--drag-bar-height, 22px);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        cursor: grab;
+        background: linear-gradient(to bottom, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0));
+        color: #4b5563;
+        font-size: 10px;
+        letter-spacing: 2px;
+        pointer-events: auto;
+      }
+
+      #drag-bar:active {
+        cursor: grabbing;
+      }
+
+      #drag-bar span {
+        opacity: 0.7;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="drag-bar" title="Arraste para mover a janela">
+      <span>⠿</span><span>⠿</span><span>⠿</span>
+    </div>
+    <div id="game-container"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
