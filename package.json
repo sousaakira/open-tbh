@@ -9,7 +9,13 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "electron:dev": "vite",
-    "electron:build": "tsc && vite build && electron-builder"
+    "build:release": "node scripts/build-release.mjs",
+    "build:all": "node scripts/build-release.mjs --all",
+    "build:win": "node scripts/build-release.mjs --win",
+    "build:win:installer": "node scripts/build-release.mjs --win --nsis",
+    "build:linux": "node scripts/build-release.mjs --linux",
+    "build:mac": "node scripts/build-release.mjs --mac",
+    "electron:build": "npm run build:release"
   },
   "dependencies": {
     "phaser": "^3.90.0"
@@ -34,10 +40,30 @@
       "dist-electron/**/*"
     ],
     "linux": {
-      "target": "AppImage"
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game",
+      "maintainer": "IDLL Game"
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.games"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }
