@@ -12,7 +12,8 @@ import {
   SPRITE_FEET_ANCHOR_Y,
   SPRITE_HEAD_RATIO,
 } from '../config'
-import { CharacterDef } from '../data/characters'
+import { AnimationDef, CharacterDef } from '../data/characters'
+import { combatLog } from '../debug/combatLog'
 
 export type FighterState = 'idle' | 'walk' | 'attack' | 'hurt' | 'death'
 
@@ -29,6 +30,7 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
   private hpBarFill?: Phaser.GameObjects.Rectangle
   private attackHitLanded = false
   private attackTimers: Phaser.Time.TimerEvent[] = []
+  private attackVariantIndex = 0
 
   constructor(scene: Phaser.Scene, x: number, def: CharacterDef) {
     super(scene, x, GROUND_Y, `${def.id}-idle`, 0)
@@ -43,7 +45,7 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
     this.setScale(CHARACTER_SCALE)
     this.setFlipX(def.team === 'hero')
     this.setOrigin(0.5, SPRITE_FEET_ANCHOR_Y)
-    this.setCollideWorldBounds(false)
+    this.setCollideWorldBounds(true)
     this.setDepth(def.team === 'hero' ? 2 : 1)
 
     const body = this.body as Phaser.Physics.Arcade.Body
@@ -108,13 +110,22 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
     this.setFlipX(!right)
   }
 
+  /** Animações globais vivem em scene.anims — sprite.anims.exists só vê animações locais */
+  private hasAnim(animKey: string): boolean {
+    return this.scene.anims.exists(animKey)
+  }
+
+  private getAnim(animKey: string): Phaser.Animations.Animation | null {
+    return this.scene.anims.get(animKey) ?? null
+  }
+
   setCombatState(next: FighterState, force = false): void {
     if (this.isDead && next !== 'death') return
     if (!force && this.state === next) return
 
     this.state = next
     const animKey = `${this.def.id}-${next}`
-    if (this.anims.exists(animKey)) {
+    if (this.hasAnim(animKey)) {
       this.play(animKey, false)
     }
   }
@@ -134,7 +145,22 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
   }
 
   isInAttackRange(target: Fighter): boolean {
-    return Fighter.getEdgeGap(this, target) <= this.def.stats.attackRange
+    return Fighter.getEdgeGap(this, target) <= this.def.stats.attackRange + 4
+  }
+
+  /** Encerra ataque preso e libera para retarget (ex.: alvo morreu no golpe) */
+  forceEndAttack(): void {
+    combatLog('force-end-attack', {
+      id: this.def.id,
+      team: this.def.team,
+      x: Math.round(this.x),
+      wasState: this.state,
+    })
+    this.clearAttackTimers()
+    this.attackHitLanded = true
+    if (!this.isDead && this.state === 'attack') {
+      this.setCombatState('idle', true)
+    }
   }
 
   canAttack(now: number): boolean {
@@ -148,30 +174,79 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
     this.attackTimers = []
   }
 
+  private resolveAttackVariant(): { variantKey: string; animDef: AnimationDef } | null {
+    const variants =
+      this.def.attackVariants ?? (this.def.animations.attack ? ['attack'] : [])
+    if (variants.length === 0) return null
+
+    for (let offset = 0; offset < variants.length; offset += 1) {
+      const index = (this.attackVariantIndex + offset) % variants.length
+      const variantKey = variants[index]
+      const animDef = this.def.animations[variantKey]
+      const animKey = `${this.def.id}-${variantKey}`
+      if (!animDef || !this.hasAnim(animKey)) continue
+
+      this.attackVariantIndex = index + 1
+      return { variantKey, animDef }
+    }
+
+    combatLog('attack-failed', {
+      id: this.def.id,
+      variants: this.def.attackVariants ?? ['attack'],
+    })
+    return null
+  }
+
   performAttack(now: number, onHit?: () => void): void {
-    const attackAnim = this.def.animations.attack
-    if (!attackAnim) return
+    const resolved = this.resolveAttackVariant()
+    if (!resolved) return
+
+    const { variantKey, animDef: attackAnim } = resolved
 
     this.clearAttackTimers()
     this.lastAttackAt = now
     this.attackHitLanded = false
     this.state = 'attack'
 
-    const animKey = `${this.def.id}-attack`
-    const hitFrame = attackAnim.hitFrame ?? Math.floor(attackAnim.frames * 0.55)
+    const animKey = `${this.def.id}-${variantKey}`
+    const phaserAnim = this.getAnim(animKey)
+    const frameCount = phaserAnim?.frames.length ?? attackAnim.frames
+    const hitFrame = attackAnim.hitFrame ?? Math.max(2, Math.floor(frameCount * 0.55))
     const frameRate = attackAnim.frameRate ?? 14
+
+    combatLog('attack-start', {
+      id: this.def.id,
+      team: this.def.team,
+      x: Math.round(this.x),
+      variant: variantKey,
+      hitFrame,
+      frames: frameCount,
+    })
 
     const finishAttack = () => {
       this.off(Phaser.Animations.Events.ANIMATION_UPDATE, onAnimUpdate)
       this.off(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete)
       if (!this.isDead && this.state === 'attack') {
+        combatLog('attack-end', { id: this.def.id, team: this.def.team })
         this.setCombatState('idle', true)
       }
     }
 
     const landHit = () => {
-      if (this.attackHitLanded || this.isDead) return
+      if (this.attackHitLanded || this.isDead) {
+        combatLog('hit-skip', {
+          id: this.def.id,
+          reason: this.isDead ? 'attacker-dead' : 'already-landed',
+        })
+        return
+      }
       this.attackHitLanded = true
+      combatLog('hit-frame', {
+        id: this.def.id,
+        team: this.def.team,
+        x: Math.round(this.x),
+        state: this.state,
+      })
       onHit?.()
     }
 
@@ -197,18 +272,14 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
     this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, onAnimComplete)
 
     const hitDelay = ((hitFrame + 1) / frameRate) * 1000
-    const attackDuration = (attackAnim.frames / frameRate) * 1000 + 80
+    const attackDuration = (frameCount / frameRate) * 1000 + 80
     this.attackTimers.push(
       this.scene.time.delayedCall(hitDelay, landHit),
       this.scene.time.delayedCall(attackDuration, finishAttack),
     )
 
-    if (this.anims.exists(animKey)) {
-      this.play(animKey, false)
-    } else {
-      landHit()
-      finishAttack()
-    }
+    this.stop()
+    this.play({ key: animKey, startFrame: 0, repeat: 0 })
   }
 
   takeDamage(amount: number): void {
@@ -222,8 +293,8 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
       return
     }
 
-    // Durante o ataque, aplica dano mas não cancela a animação (evita travar com 2+ inimigos)
-    if (this.state === 'attack') return
+    // Herói: só aplica dano — hurt travava o combate com 2+ inimigos (logs: ai-skip-state hurt)
+    if (this.def.team === 'hero' || this.state === 'attack') return
 
     this.setCombatState('hurt', true)
     this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
@@ -231,6 +302,14 @@ export class Fighter extends Phaser.Physics.Arcade.Sprite {
         this.setCombatState('idle', true)
       }
     })
+  }
+
+  /** Volta ao combate após matar um inimigo */
+  readyForNextTarget(): void {
+    this.forceEndAttack()
+    if (!this.isDead && this.state !== 'death') {
+      this.setCombatState('idle', true)
+    }
   }
 
   /** Remove hitbox imediatamente — corpo morto não pode bloquear aliados */

@@ -1,5 +1,5 @@
 import Phaser from 'phaser'
-import { COMBAT_LEFT, ENEMY_SPAWN_GAP } from '../config'
+import { ENEMY_ANCHOR_X, ENEMY_SPAWN_GAP } from '../config'
 import { CHARACTERS, ENEMY_WAVES } from '../data/characters'
 import { Fighter } from '../entities/Fighter'
 
@@ -36,7 +36,7 @@ export class WaveManager {
       const def = CHARACTERS[enemyId]
       if (!def) return
 
-      const x = COMBAT_LEFT + index * ENEMY_SPAWN_GAP
+      const x = ENEMY_ANCHOR_X + index * ENEMY_SPAWN_GAP
       const enemy = new Fighter(this.scene, x, def)
       enemy.maxHp = Math.round(enemy.maxHp * stageMultiplier)
       enemy.hp = enemy.maxHp

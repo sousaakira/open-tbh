@@ -12,6 +12,8 @@ export interface CharacterDef {
   id: string
   name: string
   animations: Record<string, AnimationDef>
+  /** Golpes usados no combate, em ordem de rotação (ex.: attack02 → attack03 → attack) */
+  attackVariants?: string[]
   stats: {
     hp: number
     attack: number
@@ -35,11 +37,22 @@ const baseAnimations = (attackFrames = 6): Record<string, AnimationDef> => ({
   death: { frames: 4, frameRate: 8 },
 })
 
+const knightAnimations = (): Record<string, AnimationDef> => ({
+  idle: { frames: 6, frameRate: 10 },
+  walk: { frames: 8, frameRate: 12 },
+  attack: { frames: 7, frameRate: 16, hitFrame: 3 },
+  attack02: { frames: 10, frameRate: 16, hitFrame: 5 },
+  attack03: { frames: 11, frameRate: 16, hitFrame: 6 },
+  hurt: { frames: 4, frameRate: 12 },
+  death: { frames: 4, frameRate: 8 },
+})
+
 export const CHARACTERS: Record<string, CharacterDef> = {
   knight: {
     id: 'knight',
     name: 'Knight',
-    animations: baseAnimations(7),
+    attackVariants: ['attack02', 'attack03', 'attack'],
+    animations: knightAnimations(),
     stats: {
       hp: 120,
       attack: 18,
@@ -52,9 +65,14 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   priest: {
     id: 'priest',
     name: 'Priest',
+    attackVariants: ['attack'],
     animations: {
-      ...baseAnimations(6),
+      idle: { frames: 6, frameRate: 10 },
+      walk: { frames: 8, frameRate: 12 },
+      attack: { frames: 9, frameRate: 14, hitFrame: 4 },
       heal: { frames: 6, frameRate: 12 },
+      hurt: { frames: 4, frameRate: 12 },
+      death: { frames: 4, frameRate: 8 },
     },
     stats: {
       hp: 80,
@@ -94,7 +112,10 @@ export const CHARACTERS: Record<string, CharacterDef> = {
   slime: {
     id: 'slime',
     name: 'Slime',
-    animations: baseAnimations(),
+    animations: {
+      ...baseAnimations(),
+      walk: { frames: 6, frameRate: 12 },
+    },
     stats: {
       hp: 35,
       attack: 8,

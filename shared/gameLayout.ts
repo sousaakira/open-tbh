@@ -2,9 +2,13 @@
 export const WINDOW_WIDTH = 400
 export const WINDOW_HEIGHT = 140
 
-/** Dimensões do mundo Phaser — espelham a janela */
+/** Viewport (janela visível) */
 export const GAME_WIDTH = WINDOW_WIDTH
 export const GAME_HEIGHT = WINDOW_HEIGHT
+
+/** Mundo rolável — combate acontece ao longo do eixo X */
+export const WORLD_WIDTH = 1600
+export const WORLD_HEIGHT = GAME_HEIGHT
 export const FRAME_SIZE = 100
 
 /**
@@ -36,6 +40,18 @@ export const SPRITE_FEET_ANCHOR_Y = 0.66
 export const CAMERA_CENTER_X = GAME_WIDTH / 2
 export const CAMERA_CENTER_Y = GAME_HEIGHT / 2
 
+/** Suavização do scroll da câmera (0–1, maior = mais rápido) */
+export const CAMERA_SCROLL_LERP = 0.18
+
+/**
+ * Posição horizontal do herói na tela (0 = esquerda, 1 = direita).
+ * 0.62 ≈ herói à direita, avançando para a esquerda (estilo TBH).
+ */
+export const CAMERA_HERO_ANCHOR_RATIO = 0.62
+
+/** Espaçamento das linhas verticais de referência no cenário */
+export const SCROLL_GRID_STEP = 80
+
 export function getCameraCenterY(): number {
   if (CAMERA_ZOOM <= 1) {
     return CAMERA_CENTER_Y
@@ -60,9 +76,9 @@ export const WINDOW_MIN_WIDTH = WINDOW_WIDTH
 export const WINDOW_MIN_HEIGHT = WINDOW_HEIGHT
 export const WINDOW_MAX_HEIGHT = Math.round(WINDOW_HEIGHT * 2)
 
-/** Spawn dentro da área visível (coordenadas do mundo) */
-export const COMBAT_LEFT = 44
-export const COMBAT_RIGHT = GAME_WIDTH - 44
+/** Pontos de spawn no mundo rolável */
+export const ENEMY_ANCHOR_X = 72
+export const HERO_ANCHOR_X = WORLD_WIDTH - 72
 export const HERO_SPAWN_GAP = 26
 export const ENEMY_SPAWN_GAP = 40
 
@@ -91,3 +107,6 @@ export const BODY_HIT_HEIGHT = 25
 
 /** Desenha as caixas de colisão do Arcade Physics (desligue em produção) */
 export const DEBUG_PHYSICS = true
+
+/** Console logs de combate (ataques, alvos, hits) — desligue em produção */
+export const DEBUG_COMBAT = true
